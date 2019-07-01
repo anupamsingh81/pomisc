@@ -556,6 +556,191 @@ z1=enquo(z);
 df%>%ggplot(aes(!!y1,!!x1,color=!!z1,group=!!z1))+stat_summary(fun.y = mean, geom = "point")+stat_summary(fun.y = mean, geom = "line")+stat_summary(fun.data = mean_se, geom = "errorbar",width=0.2)}
 
 
+library(afex)
+library(car)
+library(tidyverse)
+library(glue)
+#data(obk.long)
+library(broom)
+
+library(emmeans)
+
+twowaydf = function(data=df,id="id",dv="value",between="between",within="within"){
+  fit_all <- aov_ez(id=id,dv=dv,data=data,between=between,within=within)
+  fit_nice <- aov_ez(id=id,dv=dv,data=data,between=between,within=within,return="nice")
+#fit_nice <- aov_ez(id=id,"value",obk.long,between=c("treatment"),within=c("phase"),return="nice")
+table1=fit_nice%>%as_data_frame()%>%mutate_at(vars(MSE:p.value),parse_number)%>%mutate(significance=ifelse(p.value<0.05,"significant","non-significant"))
+ correction= summary(fit_all)$sphericity.tests%>%map_df(~as_data_frame(.))%>%pull(value)%>%matrix(2,2)%>%as_tibble()%>%setNames(nm=summary(fit_all)$sphericity.tests%>%colnames())%>%mutate(variable=summary(fit_all)$sphericity.tests%>%rownames())%>% rename(pval=2) %>% 
+  mutate(significance=ifelse(pval<0.05,"significant","non-significant"))%>%mutate(correction=ifelse(pval<0.05,"Since Sphericity (homogeneity of variance between pairs of intra-group comparisons) assumption was not met.Greenhouse-Geisser Correction was applied"," ")) %>%slice(2) %>%  
+  pull(correction)
+
+
+
+init=glue("Two way repeated measures ANOVA was done to assess difference between average {dv} of {within} group and if there was inter-group differences between {between} . An interaction test was also conducted to see if inter-group variation of {dv} within {within} was affected by {between}. {correction} ")
+ print(init)
+  describe=table1 %>% add_column(type=c(glue(" Inter group comparison of average difference between {dv} of  {between}"),
+                              glue(" Intra group comparison of average difference between {dv} of  {within}"),
+                              glue(" Interaction  of  {dv} within {within}  with  {between}"))) %>% 
+    mutate(description=glue(" {type} was {significance} with a  p value of {format(p.value,scientific=FALSE)} . In Formal statistical notation it is expressed as F({df}) = {F},p= {format(p.value,scientific=FALSE)}")) %>% pull(description) %>% collapse(.,".")
+             
+   print(describe)   }
+
+
+#twowaydf(obk.long,id="id",dv="value",between="treatment",within="phase")
+
+
+
+betweentable = function(data=df,id="id",dv="value",between="between",within="within"){
+  fit_nice <- aov_ez(id=id,dv=dv,data=data,between=between,within=within,return="nice")
+  #fit_nice <- aov_ez(id=id,"value",obk.long,between=c("treatment"),within=c("phase"),return="nice")
+ pval= fit_nice%>%as_data_frame()%>%mutate_at(vars(MSE:p.value),parse_number) %>% slice(1) %>% pull(p.value)
+ 
+ if(pval<0.05){
+   print(glue("Since Inter group average differences of {dv} of between {between} was significant. We performed a test of contrasts. "))
+   
+   f=as.formula(paste0("pairwise~",between))
+   emm1 =emmeans(fit_nice,specs=f)
+   emm1$emmeans %>% as_data_frame()
+   emm1$conttrasts %>% as_data_frame()
+ }
+}
+
+withincontrast = function(data=df,id="id",dv="value",between="between",within="within"){
+  fit_nice <- aov_ez(id=id,dv=dv,data=data,between=between,within=within,return="nice")
+  fit_all <- aov_ez(id=id,dv=dv,data=data,between=between,within=within)
+  #fit_nice <- aov_ez(id=id,"value",obk.long,between=c("treatment"),within=c("phase"),return="nice")
+  pval= fit_nice%>%as_data_frame()%>%mutate_at(vars(MSE:p.value),parse_number) %>% slice(2) %>% pull(p.value)
+  
+  if(pval<0.05){
+    print(glue("Since Intra group average differences of {dv} within {within} group was significant. We performed a test of contrasts. "))
+    
+    f=as.formula(paste0("pairwise~",within))
+    emm1 =emmeans(fit_all,specs=f)
+    
+   # print(emm1$emmeans %>% as_data_frame());
+    
+    emm1$contrasts %>% as_data_frame() %>% mutate(significance=ifelse(p.value<0.05,"significant","non-significant"),p.value=ifelse(p.value<0.001,"<0.001",round(p.value,3)),
+      description=glue("The Inter-group difference  between {contrast} was {significance} with mean difference of {round(estimate,2)}+-{round(SE,2)}, pvalue= {p.value} ")) %>% 
+      pull(description) %>% collapse(.,".") %>% print()
+    
+    ph=emmeans(fit_all,specs=within)
+    
+    contrast(ph,"poly") %>% as_data_frame() %>% mutate( 
+      significance=ifelse(p.value<0.05,"significant","non-significant"),
+      p.value=ifelse(p.value<0.001,"<0.001",round(p.value,3)),
+      description=glue("We found a {significance} {contrast} trend in intra-group difference with {within} , {round(estimate,2)}+-{round(SE,2)}, p value= {p.value}")) %>% 
+      add_row(description=glue("We also wanted to look for a trend in our {within} group since it had a time varying component "),.before=0) %>% 
+      pull(description) %>% collapse(.,".") %>% print()
+      
+    
+  }
+}
+
+betweencontrast = function(data=df,id="id",dv="value",between="between",within="within"){
+  fit_nice <- aov_ez(id=id,dv=dv,data=data,between=between,within=within,return="nice")
+  fit_all <- aov_ez(id=id,dv=dv,data=data,between=between,within=within)
+  #fit_nice <- aov_ez(id=id,"value",obk.long,between=c("treatment"),within=c("phase"),return="nice")
+  pval= fit_nice%>%as_data_frame()%>%mutate_at(vars(MSE:p.value),parse_number) %>% slice(1) %>% pull(p.value)
+  
+  if(pval<0.05){
+    print(glue("Since Intra group average differences of {dv} within {within} group was significant. We performed a test of contrasts. "))
+    
+    f=as.formula(paste0("pairwise~",between))
+    emm1 =emmeans(fit_all,specs=f)
+    
+    # print(emm1$emmeans %>% as_data_frame());
+    
+    emm1$contrasts %>% as_data_frame() %>% mutate(significance=ifelse(p.value<0.05,"significant","non-significant"),p.value=ifelse(p.value<0.001,"<0.001",round(p.value,3)),
+                                                  description=glue("The Inter-group difference  between {contrast} was {significance} with mean difference of {round(estimate,2)}+-{round(SE,2)}, pvalue= {p.value} ")) 
+     
+  }
+}
+
+
+#withincontrast(obk.long,id="id",dv="value",between="treatment",within="phase")
+
+#betweencontrast(obk.long,id="id",dv="value",between="treatment",within="phase")
+
+betweentablemeans = function(data=df,id="id",dv="value",between="between",within="within"){
+  
+  fit_all <- aov_ez(id=id,dv=dv,data=data,between=between,within=within)
+  
+ 
+    f=as.formula(paste0("pairwise~",between))
+    emm1 =emmeans(fit_all,specs=f)
+    
+    emm1$emmeans %>% as_data_frame()
+    
+    
+}
+
+#betweentablemeans(obk.long,id="id",dv="value",between="treatment",within="phase")
+
+betweentablecontrasts = function(data=df,id="id",dv="value",between="between",within="within"){
+  
+  fit_all <- aov_ez(id=id,dv=dv,data=data,between=between,within=within)
+  
+  
+  f=as.formula(paste0("pairwise~",between))
+  emm1 =emmeans(fit_all,specs=f)
+  
+  emm1$contrasts %>% as_data_frame()
+  
+  
+}
+
+#betweentablecontrasts(obk.long,id="id",dv="value",between="treatment",within="phase")
+
+
+withintablemeans = function(data=df,id="id",dv="value",between="between",within="within"){
+  
+  fit_all <- aov_ez(id=id,dv=dv,data=data,between=between,within=within)
+  
+  
+  f=as.formula(paste0("pairwise~",within))
+  emm1 =emmeans(fit_all,specs=f)
+  
+  emm1$emmeans %>% as_data_frame()
+  
+  
+}
+
+withintablecontrasts = function(data=df,id="id",dv="value",between="between",within="within"){
+  
+  fit_all <- aov_ez(id=id,dv=dv,data=data,between=between,within=within)
+  
+  
+  f=as.formula(paste0("pairwise~",within))
+  emm1 =emmeans(fit_all,specs=f)
+  
+  emm1$contrasts %>% as_data_frame()
+  
+  
+}
+
+#withintablecontrasts(obk.long,id="id",dv="value",between="treatment",within="phase")
+
+#withintablemeans(obk.long,id="id",dv="value",between="treatment",within="phase")
+
+##afex_plot##
+
+#afex_plot(fit_all,x="phase",trace="treatment")
+
+
+#This is a trace-plot of variation in {dv} (on Y axis)with various levels of {within} on X-axis , Various groups are marked 
+#by traces of {between}. we can clearly see a {positive} linear trend/slope indicating a {rise} with {within}. The difference between {between} is not-significant,
+#however the {rise} in {value} in {within} is moderated by {between} as we can see different slopes of variation with {within}
+#between {between} groups. we decided to explore this intuitive graphical relationship  with formal statistical tests.
+
+
+
+
+
+
+
+
+
+
 
 
 
