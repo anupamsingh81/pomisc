@@ -732,6 +732,64 @@ withintablecontrasts = function(data=df,id="id",dv="value",between="between",wit
 #however the {rise} in {value} in {within} is moderated by {between} as we can see different slopes of variation with {within}
 #between {between} groups. we decided to explore this intuitive graphical relationship  with formal statistical tests.
 
+##linear model
+
+library(insight)
+
+lminterpret = function(m1){response=model_info(m1)$model_terms$response;tidy(m1)%>%mutate_if(is.numeric,round,2)%>%mutate(direction=ifelse(estimate<0,"decrease","increase"),description=glue(" {estimate}*{term} "),description1= glue(" 1 unit change in {term} leads to {abs(estimate)} {direction} in {response} "))%>%rownames_to_column()%>%mutate(description=ifelse(rowname=="1",estimate,description),description1==ifelse(rowname=="1"," ",description1))%>%slice(-1)%>%pull(description1)%>%collapse(.,".")}
+
+lmformula =function (m1)  {
+response=model_info(m1)$model_terms$response;
+rhs=tidy(m1)%>%mutate_if(is.numeric,round,2)%>%mutate(description=glue("{estimate}*{term} "))%>%rownames_to_column()%>%mutate(description=ifelse(rowname=="1",estimate,description))%>%pull(description)%>%collapse(.,"+");
+formula=glue(" Our Final regression equation was predicted  {response} = {rhs} ");
+formula
+}
+
+
+
+lminit= function(m1){
+response=model_info(m1)$model_terms$response;
+predictors= tidy(m1)%>%slice(-1)%>%select(term)%>%pull(term)%>%collapse(.,",")%>%stri_replace_last(.,fixed = ",", " & ");
+desc=glue("
+Multiple linear regression was conducted to find best combination of {predictors} for predicting {response} . Dummy indicator(0/1) were used for categorical variables. The Forest plot above shows standardized regression coefficients of {predictors} with their confidence intervals as horizontal error bars on X axis. An error bar which crosses vertical line of zero in this plot is non-significant.");
+desc}
+
+
+lminit1= function(m1){
+response=model_info(m1)$model_terms$response;
+glance(m1)%>%mutate(significance= ifelse(p.value<0.05,"significantly","non-significantly"),pval=ifelse(p.value<0.001,"<0.001","p.value"),effect=ifelse(adj.r.squared<0.2,"small",ifelse(adj.r.squared<0.5,"moderate","large")), percentage=round(100*adj.r.squared,2)
+)%>%mutate_if(is.numeric,round,2)%>%mutate(description=glue("The combination of these predictors {significance} predicted {response} .There were {df+df.residual} observations in our model. The number of predictors in model was {df-1} ,while degree of freedom of residuals(no.of observation-number Of predictors in model)  was {df.residual}. In statistical notation this is expressed as F({df-1},{df.residual}) = {statistic}, P = {pval} .The standard deviation of residual error was {sigma} implying {response} was predicted with average accuracy of +-  {sigma} by our model. The adjusted R - Square for our model is {adj.r.squared} implying our model predicts  {percentage}  percentage variation in {response}  ."))%>%pull(description)%>%cat()}
+
+
+lminit2= function(m1){
+response=model_info(m1)$model_terms$response;
+signfpredictors= tidy(m1)%>%slice(-1)%>%filter(p.value<0.05)%>%select(term)%>%pull(term)%>%collapse(.,",")%>%stri_replace_last(.,fixed = ",", " & ");
+desc=glue("In Our Multivariable linear regression Model,On adjusting for all variables , {signfpredictors} significantly predicted  {response} . ");
+desc}
+
+lminit3= function(m1){
+response=model_info(m1)$model_terms$response;
+ tidy(m1)%>%slice(-1)%>%mutate_if(is.numeric,round,2)%>%
+ filter(statistic==max(statistic))%>%mutate(
+
+desc=glue("Out of all variables, {term} [ Beta = {estimate} +- {std.error} ] had highest standardized regression coefficient and contributed maximum to predicted { response} ."))%>%
+pull(desc)%>%cat()
+
+}
+
+# lminit(m1)
+
+# lminit1(m1)
+
+# lminit2(m1)
+
+
+# lminit3(m1)
+
+# lmformula(m1)
+
+# lminterpret(m1)
+
 
 
 
