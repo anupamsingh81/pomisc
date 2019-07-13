@@ -487,8 +487,8 @@ propdescr= function(df,x){
   df %>% group_by(!!x) %>% summarise(n=n()) %>% arrange(desc(n)) %>%  
     mutate(total=sum(n),percentage=round(100*n/sum(n),2),
            value=glue("{n}({percentage}%)")) %>%
-    ungroup()%>% mutate(low=qbeta(0.025,n+0.5,total-n+0.5),high=qbeta(0.975,n+0.5,total-n+0.5), ` 95 % Confidence Interval ` = paste0(round(100*low,2),"% - ",round(100*high,2),"%")) %>%
-    rename(Group=1) %>% select(Group,n,total,percentage,` 95 % Confidence Interval `) %>%
+    ungroup()%>% mutate(low=qbeta(0.025,n+0.5,total-n+0.5),high=qbeta(0.975,n+0.5,total-n+0.5), `Confidence Interval ` = paste0(round(100*low,2),"% - ",round(100*high,2),"%")) %>%
+    rename(Group=1) %>% select(Group,n,total,percentage,` Confidence Interval `) %>%
     mutate(description=glue(" {n}/{total}({percentage} %) patients are in sub-group {Group} ")) %>%
     rowid_to_column() %>% filter(rowid<3) %>%
     add_row(description=paste0("The Flipped Bar- plot above shows Counts(X axis) and percentages(annotated within bar) of various categories. The top 2 sub-groups are as follows :"),.before=0) %>%
@@ -507,8 +507,8 @@ propdescr= function(df,x){
   df %>% group_by(!!x) %>% summarise(n=n()) %>% arrange(desc(n)) %>%  
     mutate(total=sum(n),percentage=round(100*n/sum(n),2),
            value=glue("{n}({percentage}%)")) %>%
-      ungroup()%>% mutate(low=qbeta(0.025,n+0.5,total-n+0.5),high=qbeta(0.975,n+0.5,total-n+0.5), ` 95 % Confidence Interval ` = paste0(round(100*low,2),"% - ",round(100*high,2),"%")) %>%
-      rename(Group=1) %>% select(Group,n,total,percentage,` 95 % Confidence Interval `)
+      ungroup()%>% mutate(low=qbeta(0.025,n+0.5,total-n+0.5),high=qbeta(0.975,n+0.5,total-n+0.5), ` Confidence Interval ` = paste0(round(100*low,2),"% - ",round(100*high,2),"%")) %>%
+      rename(Group=1) %>% select(Group,n,total,percentage,` Confidence Interval `)
   
  
 
