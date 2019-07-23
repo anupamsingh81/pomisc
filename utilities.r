@@ -1,9 +1,14 @@
 #fxn2
 
-
 library(glue)
 library(ggstatsplot)
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(purrrr)
+library(tibble)
+library(tidyr)
+library(insight)
 library(rstatix)
 library(broom)
 library(jtools)
