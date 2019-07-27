@@ -767,7 +767,7 @@ In formal statistical notation this expressed as t({parameter})= {statistic}, P=
     
     lmformula =function (m1)  {
       response=model_info(m1)$model_terms$response;
-      rhs=tidy(m1)%>%mutate_if(is.numeric,round,2)%>%mutate(description=glue("{estimate}*{term} "))%>%rownames_to_column()%>%mutate(description=ifelse(rowname=="1",estimate,description))%>%pull(description)%>%collapse(.,"+");
+      rhs=tidy(m1)%>%mutate_if(is.numeric,round,2)%>%mutate(description=glue("{estimate}*{term} "))%>%rownames_to_column()%>%mutate(description=ifelse(rowname=="1",estimate,description))%>%pull(description)%>%glue::collapse(.,"+");
       formula=glue(" Our Final regression equation was predicted  {response} = {rhs} ");
       formula
     }
